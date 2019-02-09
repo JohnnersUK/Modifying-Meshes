@@ -9,11 +9,14 @@ public class MeshModifier : MonoBehaviour
     Vector2[] UVs;
     int[] Triangles;
 
-    Vector3[] newVerticies;
-    Vector3[] newUVs;
+    Vector3[] newVertices;
+    Vector2[] newUVs;
     int[] newTriangles;
 
-    Vector3[] cutVerticies;
+    int gapStart;
+
+    Vector3[] cutVertices;
+    Vector2[] cutUvs;
     int[] cutTriangles;
 
     public Material SegmentMaterial;
@@ -21,16 +24,26 @@ public class MeshModifier : MonoBehaviour
     float width = 1;
     float height = 1;
 
-
-    void Start()
+    void Update()
     {
-
+        if (Input.GetMouseButtonDown(0))
+        {
+            RaycastHit hit;
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            if (Physics.Raycast(ray, out hit, 1000.0f))
+            {
+                Cut(hit.transform.gameObject, hit.triangleIndex);
+            }
+        }
     }
 
     void Cut(GameObject obj, int index)
     {
         int i = 0;
         int j = 0;
+
+        // Get the objects material
+        SegmentMaterial = obj.GetComponent<Renderer>().material;
 
         // Destroy the old mesh collider
         Destroy(obj.GetComponent<MeshCollider>());
@@ -41,12 +54,33 @@ public class MeshModifier : MonoBehaviour
         UVs = mesh.uv;
         Triangles = mesh.triangles;
 
-        // Create new mesh components
-        newTriangles = new int[Triangles.Length - 3];
+        // Create new vertices
+        newVertices = new Vector3[Vertices.Length + 1];
+
+        for (int k = 0; k < Vertices.Length; k++)
+        {
+            newVertices[k] = Vertices[k];
+        }
+
+        // Add a centroid vertex
+        Vector3 centroid = new Vector3(0, 0, 0);
+        for (int k = 0; k < Vertices.Length; k++)
+        {
+            centroid.x += Vertices[k].x;
+            centroid.y += Vertices[k].y;
+            centroid.z = Vertices[k].z;
+        }
+        centroid /= Vertices.Length;
+
+        newVertices[newVertices.Length - 1] = centroid;
+
+        // create new triangles
+        newTriangles = new int[Triangles.Length + 9];
 
         // Create segment components
         cutTriangles = new int[3];
-        cutVerticies = new Vector3[4];
+        cutVertices = new Vector3[4];
+        cutUvs = new Vector2[cutVertices.Length];
 
         // Whilst there are unprocessed triangles
         while (j < Triangles.Length)
@@ -63,15 +97,29 @@ public class MeshModifier : MonoBehaviour
             // If the triangle is the one clicked on
             else
             {
+                newTriangles[i++] = Triangles[j + 1];
+                newTriangles[i++] = Triangles[j + 2];
+                newTriangles[i++] = newVertices.Length-1;
+
+                newTriangles[i++] = Triangles[j + 1];
+                newTriangles[i++] = Triangles[j + 3];
+                newTriangles[i++] = newVertices.Length - 1;
+
+                newTriangles[i++] = Triangles[j + 2];
+                newTriangles[i++] = Triangles[j + 3];
+                newTriangles[i++] = newVertices.Length - 1;
+
                 for (int k = 0; k < 3; k++)
                 {
-                    cutVerticies[k] = Vertices[Triangles[j++]];
-                    Debug.Log(cutVerticies[k]);
+                    cutVertices[k] = Vertices[Triangles[j++]];
+                    Debug.Log(cutVertices[k]);
                 }
             }
         }
 
+
         // Reconstruct the object
+        mesh.vertices = newVertices;
         mesh.triangles = newTriangles;
         obj.AddComponent<MeshCollider>();
 
@@ -81,26 +129,17 @@ public class MeshModifier : MonoBehaviour
 
         Mesh segMesh = new Mesh();
 
-        // Add a centroid vertex
-        float cx = 0.0f;
-        float cy = 0.0f;
-        float cz = 0.0f;
+        // Assign the new verts
+        segMesh.vertices = cutVertices;
 
-        for (int l = 0; l < 3; l++)
+        // Assign the new uvs
+        for (int k = 0; k < cutUvs.Length; k++)
         {
-            cx += cutVerticies[l].x;
-            cy += cutVerticies[l].y;
-            cz += cutVerticies[l].z;
+            cutUvs[k] = new Vector2(cutVertices[k].x, cutVertices[k].z);
         }
+        segMesh.uv = cutUvs;
 
-        cx /= 3;
-        cy /= 3;
-        cz /= 3;
-
-        cutVerticies[3] = new Vector3(cx, cy, cz);
-
-        segMesh.vertices = cutVerticies;
-
+        // Assign the new triangles
         segMesh.triangles = new int[] { 0, 1, 2,
                                         0, 1, 3,
                                         0, 2, 3,
@@ -111,18 +150,5 @@ public class MeshModifier : MonoBehaviour
         Seg.AddComponent<MeshCollider>().convex = true;
 
         Seg.AddComponent<Rigidbody>();
-    }
-
-    void Update()
-    {
-        if (Input.GetMouseButtonDown(0))
-        {
-            RaycastHit hit;
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out hit, 1000.0f))
-            {
-                Cut(hit.transform.gameObject, hit.triangleIndex);
-            }
-        }
     }
 }

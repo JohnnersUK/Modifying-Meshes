@@ -277,8 +277,8 @@ Transform:
   m_LocalPosition: {x: -1.49, y: 1.77, z: -1.283}
   m_LocalScale: {x: 1, y: 0.052012, z: 3.8802}
   m_Children:
-  - {fileID: 1138166256}
   - {fileID: 1072561067}
+  - {fileID: 1138166256}
   m_Father: {fileID: 0}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -335,7 +335,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 61659e43f83c1224db503abddbe0aa6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cuttingPlane: {fileID: 0}
+  cuttingPlane: {fileID: 1072561066}
 --- !u!1 &529071527
 GameObject:
   m_ObjectHideFlags: 0
@@ -578,11 +578,11 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1072561066}
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: -2.000001, z: -0.00000021506}
-  m_LocalScale: {x: 2.7786, y: 1.2695658, z: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_Children: []
   m_Father: {fileID: 441191221}
-  m_RootOrder: 1
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!65 &1072561069
 BoxCollider:
@@ -685,7 +685,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 441191221}
-  m_RootOrder: 0
+  m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1199680560
 GameObject:

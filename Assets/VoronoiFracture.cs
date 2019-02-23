@@ -8,7 +8,7 @@ public class VoronoiFracture : MonoBehaviour
 
     private int count;
     private Mesh _mesh;
-    private List<Point> points;
+    public List<Point> points;
 
     // Start is called before the first frame update
     void Start()
@@ -77,7 +77,7 @@ public class VoronoiFracture : MonoBehaviour
         }
     }
 
-    struct Point
+    public struct Point
     {
         public Point(Vector3 pos)
         {

@@ -3,7 +3,12 @@ using UnityEngine;
 
 public class Slicing : MonoBehaviour
 {
+
+    public int maxCuts;
+
     private GameObject target;
+    public List<GameObject> targetList;
+    private List<GameObject> lockedTargetList;
 
     // Components of the cutting plane
     public GameObject cuttingPlane;
@@ -56,30 +61,83 @@ public class Slicing : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetMouseButtonUp(0))
+        Debug.DrawRay(transform.position, transform.forward, Color.green);
+
+        // Complete a single cut
+        if (Input.GetMouseButtonUp(2))
         {
-            RaycastHit hit;
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out hit, 1000.0f))
+            bool empty = (targetList.Count == 0);
+
+            // Whilst the list of targets isn't empty
+            while (!empty)
             {
+                // Slice the top object
+                target = targetList[targetList.Count-1];
+                SliceMesh(transform.position);
 
-                target = hit.transform.gameObject;
-                // Slice the mesh
-                SliceMesh(hit.point);
-
-                // Destroy the original game object
-                Destroy(target);
+                empty = (targetList.Count == 0);
             }
+            
+        }
+
+        // Complete a series of cuts at random rotations
+        if (Input.GetMouseButton(0))
+        {
+            // Raycast from screen to mouse point
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit hit;
+
+            if (Physics.Raycast(ray, out hit, Mathf.Infinity))
+            {
+                // Clear the target list and add the hit object
+                targetList.Clear();
+                targetList.Add(hit.transform.gameObject);
+
+                int cuts = Random.Range(maxCuts/2, maxCuts);
+                bool empty = (targetList.Count == 0);
+
+                // Store the original rotation then reset it
+                Quaternion origin = transform.rotation;
+                transform.rotation = new Quaternion(0, 0, 0, 0);
+
+                // Whilst the list of targets isn't empty
+                while (!empty)
+                {
+                    // Random a rotation
+                    transform.Rotate(0.0f, 0.0f, Random.Range(0.0f, 360.0f));
+
+                    // Slice the bottom object
+                    target = targetList[0];
+                    SliceMesh(hit.transform.position);
+
+                    if (cuts < 0)
+                    {
+                        targetList.Add(topPart);
+                        targetList.Add(bottomPart);
+                        cuts--;
+                    }
+
+                    empty = (targetList.Count == 0);
+                }
+
+                transform.rotation = origin;
+            }
+ 
         }
     }
 
+    /// <summary>
+    /// Slices the target game object
+    /// </summary>
+    /// <param name="HitPos">Position of the cut, by default send in the players location</param>
     private void SliceMesh(Vector3 HitPos)
     {
         // Re-initilize components for general clean-up
         Start();
 
         // Set the position of the cut
-        cuttingPlane.transform.position = HitPos;
+        Vector3 origin = cuttingPlane.transform.position;
+        //cuttingPlane.transform.position = HitPos;
 
         planeDirection = (-cuttingPlane.transform.forward).normalized;
         planePosition = cuttingPlane.transform.position;
@@ -183,6 +241,8 @@ public class Slicing : MonoBehaviour
         }
         center /= centerVerts.Count;
 
+        //TODO: Order the center verts clockwise
+
         // Fill the gap in both game objects left by the cut
         GapFill(upVerts, upTris, upUVs, upNormals, centerVerts, center, true);
         GapFill(downVerts, downTris, downUVs, downNormals, centerVerts, center, false);
@@ -190,6 +250,13 @@ public class Slicing : MonoBehaviour
         // Create the two new GameObjects
         createPart(topPart, upVerts, upTris, upUVs, upNormals);
         createPart(bottomPart, downVerts, downTris, downUVs, downNormals);
+
+        // Remove the old target from the target list and destroy it
+        targetList.Remove(target);
+        Destroy(target);
+
+        // Reset the position of the cutting plane
+        cuttingPlane.transform.position = origin;
     }
 
     // Fills the gap left in each side after a cut
@@ -241,7 +308,9 @@ public class Slicing : MonoBehaviour
         part.AddComponent<MeshFilter>();
         part.AddComponent<MeshRenderer>();
 
-        part.AddComponent<Rigidbody>().useGravity = false;
+        Rigidbody rb = part.AddComponent<Rigidbody>();
+        rb.mass = 10;
+
 
         Mesh partMesh = part.GetComponent<MeshFilter>().mesh;
 
@@ -254,6 +323,8 @@ public class Slicing : MonoBehaviour
         part.GetComponent<Renderer>().material = target.GetComponent<Renderer>().material;
 
         part.AddComponent<MeshCollider>().convex = true;
+
+        part.name = target.name + " " + part.name;
     }
 
     // Checks for an intersection across the cutting line

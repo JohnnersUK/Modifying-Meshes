@@ -258,92 +258,22 @@ public class Slicing : MonoBehaviour
             orderedInnerVerts = CenterVertices.OrderBy(x => normalDir * Mathf.Atan2((x - center).x, (x - center).y));
         }
 
-        GapFill(TopVertices, TopTriangles, TopUVs, TopNormals, orderedInnerVerts, center, true);
-        GapFill(BottomVertices, BottomTriangles, BottomUVs, BottomNormals, orderedInnerVerts, center, false);
+        CapGap(TopVertices, TopTriangles, TopUVs, TopNormals, orderedInnerVerts, center, true);
+        CapGap(BottomVertices, BottomTriangles, BottomUVs, BottomNormals, orderedInnerVerts, center, false);
 
         // Create the two new GameObjects
-        createPart(TopPart, TopVertices, TopTriangles, TopUVs, TopNormals);
-        createPart(BottomPart, BottomVertices, BottomTriangles, BottomUVs, BottomNormals);
+        CreatePart(TopPart, TopVertices, TopTriangles, TopUVs, TopNormals);
+        CreatePart(BottomPart, BottomVertices, BottomTriangles, BottomUVs, BottomNormals);
 
         TargetList.Remove(CurrentTarget);
         Destroy(CurrentTarget);
     }
 
-    private void GapFill(List<Vector3> partVerts, List<int> partTris, List<Vector2> partUvs, List<Vector3> partNormals, IOrderedEnumerable<Vector3> orderedInnerVerts, Vector3 center, bool top)
+    private bool[] CheckIntersection(Vector3 v1, Vector3 v2, Vector3 v3)
     {
-        List<int> centerTris = new List<int>();
-
-        int sizeVertsBeforeCenter = partVerts.Count;
-        partVerts.AddRange(orderedInnerVerts);
-        partVerts.Add(center);
-
-        if (top)
-        {
-            for (int i = sizeVertsBeforeCenter; i < partVerts.Count - 1; i++)
-            {
-                centerTris.Add(i);
-                centerTris.Add(i + 1);
-                centerTris.Add(partVerts.Count - 1);
-            }
-
-            centerTris.Add(partVerts.Count - 2);
-            centerTris.Add(sizeVertsBeforeCenter);
-            centerTris.Add(partVerts.Count - 1);
-        }
-        else
-        {
-            for (int i = sizeVertsBeforeCenter; i < partVerts.Count - 1; i++)
-            {
-                centerTris.Add(i);
-                centerTris.Add(partVerts.Count - 1);
-                centerTris.Add(i + 1);
-            }
-
-            centerTris.Add(partVerts.Count - 2);
-            centerTris.Add(partVerts.Count - 1);
-            centerTris.Add(sizeVertsBeforeCenter);
-        }
-
-        partTris.AddRange(centerTris);
-
-        Vector3 normal;
-        if (top)
-            normal = TopPart.transform.InverseTransformVector(-PlanePosition);
-        else
-            normal = BottomPart.transform.InverseTransformVector(PlanePosition);
-        for (int i = sizeVertsBeforeCenter; i < partVerts.Count; i++)
-        {
-            partUvs.Add(new Vector2(0, 0));
-            partNormals.Add(normal.normalized * 3);
-        }
-
-    }
-
-    private void createPart(GameObject part, List<Vector3> partVerts, List<int> partTris, List<Vector2> partUvs, List<Vector3> partNorms)
-    {
-        part.AddComponent<MeshFilter>();
-        part.AddComponent<MeshRenderer>();
-
-        part.AddComponent<Rigidbody>().useGravity = false;
-
-        Mesh partMesh = part.GetComponent<MeshFilter>().mesh;
-
-        partMesh.Clear();
-        partMesh.vertices = partVerts.ToArray();
-        partMesh.triangles = partTris.ToArray();
-        partMesh.uv = partUvs.ToArray();
-        partMesh.normals = partNorms.ToArray();
-        partMesh.RecalculateBounds();
-        part.GetComponent<Renderer>().material = CurrentTarget.GetComponent<Renderer>().material;
-
-        part.AddComponent<MeshCollider>().convex = true;
-    }
-
-    private bool[] CheckIntersection(Vector3 p1, Vector3 p2, Vector3 p3)
-    {
-        float upOrDown = Mathf.Sign(Vector3.Dot(PlaneDirection, p1 - PlanePosition));
-        float upOrDown2 = Mathf.Sign(Vector3.Dot(PlaneDirection, p2 - PlanePosition));
-        float upOrDown3 = Mathf.Sign(Vector3.Dot(PlaneDirection, p3 - PlanePosition));
+        float upOrDown = Mathf.Sign(Vector3.Dot(PlaneDirection, v1 - PlanePosition));
+        float upOrDown2 = Mathf.Sign(Vector3.Dot(PlaneDirection, v2 - PlanePosition));
+        float upOrDown3 = Mathf.Sign(Vector3.Dot(PlaneDirection, v3 - PlanePosition));
 
         bool intersect1 = upOrDown != upOrDown2;
         bool intersect2 = upOrDown2 != upOrDown3;
@@ -365,70 +295,20 @@ public class Slicing : MonoBehaviour
 
         if (intersections[0])
         {
-            AddToCorrectSideList(upOrDown, 0, 1, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
+            SplitTriangles(upOrDown, 0, 1, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
         }
         if (intersections[1])
         {
-            AddToCorrectSideList(upOrDown2, 1, 2, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
+            SplitTriangles(upOrDown2, 1, 2, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
         }
         if (intersections[2])
         {
-            AddToCorrectSideList(upOrDown3, 2, 0, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
+            SplitTriangles(upOrDown3, 2, 0, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
         }
-        HandleTriOrder(tmpUpVerts, tmpDownVerts);
+        CreateNewTriangles(tmpUpVerts, tmpDownVerts);
     }
 
-    private void CalculateCentroid(Vector3 newPoint, ref Vector2 newUV, ref Vector3 newNormal, Vector3[] points, Vector2[] uvs, Vector3[] normals)
-    {
-        Vector3 f1 = points[0] - newPoint;
-        Vector3 f2 = points[1] - newPoint;
-        Vector3 f3 = points[2] - newPoint;
-
-        // calculate the triangle areas
-        float areaMainTri = Vector3.Cross(points[0] - points[1], points[0] - points[2]).magnitude; // main triangle area a
-        float a1 = Vector3.Cross(f2, f3).magnitude / areaMainTri; // p1's triangle area / a
-        float a2 = Vector3.Cross(f3, f1).magnitude / areaMainTri; // p2's triangle area / a 
-        float a3 = Vector3.Cross(f1, f2).magnitude / areaMainTri; // p3's triangle area / a
-
-        // find the uv corresponding to point f
-        newNormal = normals[0] * a1 + normals[1] * a2 + normals[2] * a3;
-        newUV = uvs[0] * a1 + uvs[1] * a2 + uvs[2] * a3;
-    }
-
-    private void HandleTriOrder(List<Vector3> tmpUpVerts, List<Vector3> tmpDownVerts)
-    {
-        int upLastInsert = TopVertices.Count;
-        int downLastInsert = BottomVertices.Count;
-
-        BottomVertices.AddRange(tmpDownVerts);
-        TopVertices.AddRange(tmpUpVerts);
-
-        TopTriangles.Add(upLastInsert);
-        TopTriangles.Add(upLastInsert + 1);
-        TopTriangles.Add(upLastInsert + 2);
-
-        if (tmpUpVerts.Count > 3)
-        {
-            TopTriangles.Add(upLastInsert);
-            TopTriangles.Add(upLastInsert + 2);
-            TopTriangles.Add(upLastInsert + 3);
-        }
-
-        BottomTriangles.Add(downLastInsert);
-        BottomTriangles.Add(downLastInsert + 1);
-        BottomTriangles.Add(downLastInsert + 2);
-
-        if (tmpDownVerts.Count > 3)
-        {
-            BottomTriangles.Add(downLastInsert);
-            BottomTriangles.Add(downLastInsert + 2);
-            BottomTriangles.Add(downLastInsert + 3);
-
-        }
-
-    }
-
-    private void AddToCorrectSideList(float upOrDown, int pIndex1, int pIndex2, Vector3[] verts, Vector2[] uvs, Vector3[] normals, List<Vector3> top, List<Vector3> bottom)
+    private void SplitTriangles(float upOrDown, int pIndex1, int pIndex2, Vector3[] verts, Vector2[] uvs, Vector3[] normals, List<Vector3> top, List<Vector3> bottom)
     {
         Vector3 p1 = verts[pIndex1];
         Vector3 p2 = verts[pIndex2];
@@ -442,7 +322,7 @@ public class Slicing : MonoBehaviour
         Vector3 newVert = p1 + rayDir * t;
         Vector2 newUv = new Vector2(0, 0);
         Vector3 newNormal = new Vector3(0, 0, 0);
-        CalculateCentroid(newVert, ref newUv, ref newNormal, verts, uvs, normals);
+        GetNewUVs(newVert, ref newUv, ref newNormal, verts, uvs, normals);
 
 
         Vector3 topNewVert = TopPart.transform.InverseTransformPoint(newVert);
@@ -513,5 +393,125 @@ public class Slicing : MonoBehaviour
             CenterVertices.Add(botNewVert);
         }
 
+    }
+
+    private void GetNewUVs(Vector3 newPoint, ref Vector2 newUV, ref Vector3 newNormal, Vector3[] points, Vector2[] uvs, Vector3[] normals)
+    {
+        Vector3 f1 = points[0] - newPoint;
+        Vector3 f2 = points[1] - newPoint;
+        Vector3 f3 = points[2] - newPoint;
+
+        // calculate the triangle areas
+        float areaMainTri = Vector3.Cross(points[0] - points[1], points[0] - points[2]).magnitude; // main triangle area a
+        float a1 = Vector3.Cross(f2, f3).magnitude / areaMainTri; // p1's triangle area / a
+        float a2 = Vector3.Cross(f3, f1).magnitude / areaMainTri; // p2's triangle area / a 
+        float a3 = Vector3.Cross(f1, f2).magnitude / areaMainTri; // p3's triangle area / a
+
+        // find the uv corresponding to point f
+        newNormal = normals[0] * a1 + normals[1] * a2 + normals[2] * a3;
+        newUV = uvs[0] * a1 + uvs[1] * a2 + uvs[2] * a3;
+    }
+
+    private void CreateNewTriangles(List<Vector3> tmpUpVerts, List<Vector3> tmpDownVerts)
+    {
+        int upLastInsert = TopVertices.Count;
+        int downLastInsert = BottomVertices.Count;
+
+        BottomVertices.AddRange(tmpDownVerts);
+        TopVertices.AddRange(tmpUpVerts);
+
+        TopTriangles.Add(upLastInsert);
+        TopTriangles.Add(upLastInsert + 1);
+        TopTriangles.Add(upLastInsert + 2);
+
+        if (tmpUpVerts.Count > 3)
+        {
+            TopTriangles.Add(upLastInsert);
+            TopTriangles.Add(upLastInsert + 2);
+            TopTriangles.Add(upLastInsert + 3);
+        }
+
+        BottomTriangles.Add(downLastInsert);
+        BottomTriangles.Add(downLastInsert + 1);
+        BottomTriangles.Add(downLastInsert + 2);
+
+        if (tmpDownVerts.Count > 3)
+        {
+            BottomTriangles.Add(downLastInsert);
+            BottomTriangles.Add(downLastInsert + 2);
+            BottomTriangles.Add(downLastInsert + 3);
+
+        }
+
+    }
+
+    private void CapGap(List<Vector3> partVerts, List<int> partTris, List<Vector2> partUvs, List<Vector3> partNormals, IOrderedEnumerable<Vector3> orderedInnerVerts, Vector3 center, bool top)
+    {
+        List<int> centerTris = new List<int>();
+
+        int sizeVertsBeforeCenter = partVerts.Count;
+        partVerts.AddRange(orderedInnerVerts);
+        partVerts.Add(center);
+
+        if (top)
+        {
+            for (int i = sizeVertsBeforeCenter; i < partVerts.Count - 1; i++)
+            {
+                centerTris.Add(i);
+                centerTris.Add(i + 1);
+                centerTris.Add(partVerts.Count - 1);
+            }
+
+            centerTris.Add(partVerts.Count - 2);
+            centerTris.Add(sizeVertsBeforeCenter);
+            centerTris.Add(partVerts.Count - 1);
+        }
+        else
+        {
+            for (int i = sizeVertsBeforeCenter; i < partVerts.Count - 1; i++)
+            {
+                centerTris.Add(i);
+                centerTris.Add(partVerts.Count - 1);
+                centerTris.Add(i + 1);
+            }
+
+            centerTris.Add(partVerts.Count - 2);
+            centerTris.Add(partVerts.Count - 1);
+            centerTris.Add(sizeVertsBeforeCenter);
+        }
+
+        partTris.AddRange(centerTris);
+
+        Vector3 normal;
+        if (top)
+            normal = TopPart.transform.InverseTransformVector(-PlanePosition);
+        else
+            normal = BottomPart.transform.InverseTransformVector(PlanePosition);
+        for (int i = sizeVertsBeforeCenter; i < partVerts.Count; i++)
+        {
+            partUvs.Add(new Vector2(0, 0));
+            partNormals.Add(normal.normalized * 3);
+        }
+
+    }
+
+    private void CreatePart(GameObject part, List<Vector3> partVerts, List<int> partTris, List<Vector2> partUvs, List<Vector3> partNorms)
+    {
+        part.AddComponent<MeshFilter>();
+        part.AddComponent<MeshRenderer>();
+
+        part.AddComponent<Rigidbody>().useGravity = false;
+
+        Mesh partMesh = part.GetComponent<MeshFilter>().mesh;
+
+        partMesh.Clear();
+        partMesh.vertices = partVerts.ToArray();
+        partMesh.triangles = partTris.ToArray();
+        partMesh.uv = partUvs.ToArray();
+        partMesh.normals = partNorms.ToArray();
+        partMesh.RecalculateBounds();
+        part.GetComponent<Renderer>().material = CurrentTarget.GetComponent<Renderer>().material;
+
+        part.AddComponent<MeshCollider>().convex = true;
     }
 }

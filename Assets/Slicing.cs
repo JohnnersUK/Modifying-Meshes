@@ -1,18 +1,21 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public class Slicing : MonoBehaviour
 {
+    // Maximum amount of cuts when shattering glass
     public int MaxCuts;
 
-    private GameObject Target;
+    private GameObject CurrentTarget;
     public List<GameObject> TargetList;
     private List<GameObject> LockedTargetList;
 
     // Components of the cutting plane
     public GameObject CuttingPlane;
-    private Vector3 CutDirection;
-    private Vector3 CutPosition;
+    private Vector3 PlaneDirection;
+    private Vector3 PlanePosition;
 
     // Top components 
     private GameObject TopPart;
@@ -25,10 +28,10 @@ public class Slicing : MonoBehaviour
     // Bottom components
     private GameObject BottomPart;
 
-    private List<Vector3> DownVertices;
-    private List<Vector3> DownNormals;
-    private List<Vector2> DownUVs;
-    private List<int> DownTriangles;
+    private List<Vector3> BottomVertices;
+    private List<Vector3> BottomNormals;
+    private List<Vector2> BottomUVs;
+    private List<int> BottomTriangles;
 
     // Newly generated vertices around cut
     private List<Vector3> CenterVertices;
@@ -40,6 +43,7 @@ public class Slicing : MonoBehaviour
 
     private void Start()
     {
+        // Initilize components
         InitializeComponents();
     }
 
@@ -56,8 +60,8 @@ public class Slicing : MonoBehaviour
             while (!empty)
             {
                 // Slice the top object
-                Target = TargetList[TargetList.Count - 1];
-                SliceMesh(transform.position);
+                CurrentTarget = TargetList[TargetList.Count - 1];
+                SliceMesh(CurrentTarget.transform.position);
 
                 empty = (TargetList.Count == 0);
             }
@@ -73,38 +77,41 @@ public class Slicing : MonoBehaviour
 
             if (Physics.Raycast(ray, out hit, Mathf.Infinity))
             {
-                // Clear the target list and add the hit object
-                TargetList.Clear();
-                TargetList.Add(hit.transform.gameObject);
-
-                int cuts = Random.Range(MaxCuts / 2, MaxCuts);
-                bool empty = (TargetList.Count == 0);
-
-                // Store the original rotation then reset it
-                Quaternion origin = transform.rotation;
-                transform.rotation = new Quaternion(0, 0, 0, 0);
-
-                // Whilst the list of targets isn't empty
-                while (!empty)
+                if(hit.transform.gameObject != CuttingPlane)
                 {
-                    // Random a rotation
-                    transform.Rotate(0.0f, 0.0f, Random.Range(0.0f, 360.0f));
+                    // Clear the target list and add the hit object
+                    TargetList.Clear();
+                    TargetList.Add(hit.transform.gameObject);
 
-                    // Slice the bottom object
-                    Target = TargetList[0];
-                    SliceMesh(hit.transform.position);
+                    int cuts = Random.Range(MaxCuts / 2, MaxCuts);
+                    bool empty = (TargetList.Count == 0);
 
-                    if (cuts < 0)
+                    // Store the original rotation then reset it
+                    Quaternion origin = transform.rotation;
+                    transform.rotation = new Quaternion(0, 0, 0, 0);
+
+                    // Whilst the list of targets isn't empty
+                    while (!empty)
                     {
-                        TargetList.Add(TopPart);
-                        TargetList.Add(BottomPart);
-                        cuts--;
+                        // Random a rotation
+                        transform.Rotate(0.0f, 0.0f, Random.Range(0.0f, 360.0f));
+
+                        // Slice the bottom object
+                        CurrentTarget = TargetList[0];
+                        SliceMesh(hit.point);
+
+                        if (cuts < 0)
+                        {
+                            TargetList.Add(TopPart);
+                            TargetList.Add(BottomPart);
+                            cuts--;
+                        }
+
+                        empty = (TargetList.Count == 0);
                     }
 
-                    empty = (TargetList.Count == 0);
-                }
-
-                transform.rotation = origin;
+                    transform.rotation = origin;
+                }          
             }
 
         }
@@ -122,32 +129,27 @@ public class Slicing : MonoBehaviour
         TopUVs = new List<Vector2>();
         TopNormals = new List<Vector3>();
 
-        DownVertices = new List<Vector3>();
-        DownTriangles = new List<int>();
-        DownUVs = new List<Vector2>();
-        DownNormals = new List<Vector3>();
+        BottomVertices = new List<Vector3>();
+        BottomTriangles = new List<int>();
+        BottomUVs = new List<Vector2>();
+        BottomNormals = new List<Vector3>();
 
         CenterVertices = new List<Vector3>();
     }
 
-    /// <summary>
-    /// Slices the target game object
-    /// </summary>
-    /// <param name="HitPos">Position of the cut, by default send in the players location</param>
-    private void SliceMesh(Vector3 HitPos)
+    private void SliceMesh(Vector3 hitPos)
     {
-        // Re-initilize components for general clean-up
-        InitializeComponents();
+        Start();
 
         // Set the position of the cut
         Vector3 origin = CuttingPlane.transform.position;
-        //cuttingPlane.transform.position = HitPos;
+        CuttingPlane.transform.position = hitPos;
 
-        CutDirection = (-CuttingPlane.transform.forward).normalized;
-        CutPosition = CuttingPlane.transform.position;
+        PlaneDirection = (-CuttingPlane.transform.forward).normalized;
+        PlanePosition = CuttingPlane.transform.position;
 
         // Initilize the target components
-        Mesh targetMesh = Target.GetComponent<MeshFilter>().mesh;
+        Mesh targetMesh = CurrentTarget.GetComponent<MeshFilter>().mesh;
 
         int[] tris = targetMesh.triangles;
         Vector2[] uvs = targetMesh.uv;
@@ -160,17 +162,17 @@ public class Slicing : MonoBehaviour
         // Loop through each triangle, checking for intersections
         for (int i = 0; i < tris.Length; i += 3)
         {
-            Vector3 worldp1 = Target.transform.TransformPoint(verts[tris[i]]);
-            Vector3 worldp2 = Target.transform.TransformPoint(verts[tris[i + 1]]);
-            Vector3 worldp3 = Target.transform.TransformPoint(verts[tris[i + 2]]);
+            Vector3 worldp1 = CurrentTarget.transform.TransformPoint(verts[tris[i]]);
+            Vector3 worldp2 = CurrentTarget.transform.TransformPoint(verts[tris[i + 1]]);
+            Vector3 worldp3 = CurrentTarget.transform.TransformPoint(verts[tris[i + 2]]);
 
             Vector2 uv1 = uvs[tris[i]];
             Vector2 uv2 = uvs[tris[i + 1]];
             Vector2 uv3 = uvs[tris[i + 2]];
 
-            Vector3 normal1 = Target.transform.TransformVector(normals[tris[i]]);
-            Vector3 normal2 = Target.transform.TransformVector(normals[tris[i + 1]]);
-            Vector3 normal3 = Target.transform.TransformVector(normals[tris[i + 2]]);
+            Vector3 normal1 = CurrentTarget.transform.TransformVector(normals[tris[i]]);
+            Vector3 normal2 = CurrentTarget.transform.TransformVector(normals[tris[i + 1]]);
+            Vector3 normal3 = CurrentTarget.transform.TransformVector(normals[tris[i + 2]]);
 
             // Check for intersections
             bool[] intersected = CheckIntersection(worldp1, worldp2, worldp3);
@@ -196,7 +198,7 @@ public class Slicing : MonoBehaviour
             else
             {
                 // Top Half
-                if (Vector3.Dot(CutDirection, (worldp1 - CutPosition)) >= 0)
+                if (Vector3.Dot(PlaneDirection, (worldp1 - PlanePosition)) >= 0)
                 {
                     TopVertices.Add(TopPart.transform.InverseTransformPoint(worldp1));
                     TopVertices.Add(TopPart.transform.InverseTransformPoint(worldp2));
@@ -217,103 +219,112 @@ public class Slicing : MonoBehaviour
                 // Bottom Half
                 else
                 {
-                    DownVertices.Add(BottomPart.transform.InverseTransformPoint(worldp1));
-                    DownVertices.Add(BottomPart.transform.InverseTransformPoint(worldp2));
-                    DownVertices.Add(BottomPart.transform.InverseTransformPoint(worldp3));
+                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(worldp1));
+                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(worldp2));
+                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(worldp3));
 
-                    DownTriangles.Add(DownVertices.Count - 3);
-                    DownTriangles.Add(DownVertices.Count - 2);
-                    DownTriangles.Add(DownVertices.Count - 1);
+                    BottomTriangles.Add(BottomVertices.Count - 3);
+                    BottomTriangles.Add(BottomVertices.Count - 2);
+                    BottomTriangles.Add(BottomVertices.Count - 1);
 
-                    DownUVs.Add(uv1);
-                    DownUVs.Add(uv2);
-                    DownUVs.Add(uv3);
+                    BottomUVs.Add(uv1);
+                    BottomUVs.Add(uv2);
+                    BottomUVs.Add(uv3);
 
-                    DownNormals.Add(BottomPart.transform.InverseTransformVector(normal1));
-                    DownNormals.Add(BottomPart.transform.InverseTransformVector(normal2));
-                    DownNormals.Add(BottomPart.transform.InverseTransformVector(normal3));
+                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(normal1));
+                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(normal2));
+                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(normal3));
                 }
             }
 
         }
 
-        // Calculate the center of the cut
+        // Add verts along the cut line
         Vector3 center = Vector3.zero;
         for (int i = 0; i < CenterVertices.Count; i++)
-        {
             center += CenterVertices[i];
-        }
         center /= CenterVertices.Count;
 
-        //TODO: Order the center verts clockwise
+        IOrderedEnumerable<Vector3> orderedInnerVerts;
 
-        // Fill the gap in both game objects left by the cut
-        GapFill(TopVertices, TopTriangles, TopUVs, TopNormals, CenterVertices, center, true);
-        GapFill(DownVertices, DownTriangles, DownUVs, DownNormals, CenterVertices, center, false);
-
-        // Create the two new GameObjects
-        createPart(TopPart, TopVertices, TopTriangles, TopUVs, TopNormals);
-        createPart(BottomPart, DownVertices, DownTriangles, DownUVs, DownNormals);
-
-        // Remove the old target from the target list and destroy it
-        TargetList.Remove(Target);
-        Destroy(Target);
-
-        // Reset the position of the cutting plane
-        CuttingPlane.transform.position = origin;
-    }
-
-    // Fills the gap left in each side after a cut
-    private void GapFill(List<Vector3> partVerts, List<int> partTris, List<Vector2> partUvs, List<Vector3> partNormals, List<Vector3> centerVerts, Vector3 center, bool top)
-    {
-        List<int> centerTris = new List<int>();
-
-        // Add the list of center vertices to the segments vertices
-        int sizeVertsBeforeCenter = partVerts.Count;
-        partVerts.AddRange(centerVerts);
-        partVerts.Add(center);
-
-        // For each vert in center verts, add a triangle betweiin this vert, the next vert and the center
-        for (int i = sizeVertsBeforeCenter; i < partVerts.Count - 1; i++)
+        if (PlaneDirection.y != 0)
         {
-            centerTris.Add(i);
-            centerTris.Add(i + 1);
-            centerTris.Add(partVerts.Count - 1);
-        }
-
-        centerTris.Add(partVerts.Count - 2);
-        centerTris.Add(sizeVertsBeforeCenter);
-        centerTris.Add(partVerts.Count - 1);
-
-        partTris.AddRange(centerTris);
-
-        // Flip the normal depending on which side of the object we are reconstructing
-        Vector3 normal;
-        if (top)
-        {
-            normal = TopPart.transform.InverseTransformVector(-CutPosition);
+            float normalDir = Mathf.Sign(PlaneDirection.y);
+            orderedInnerVerts = CenterVertices.OrderBy(x => normalDir * Mathf.Atan2((x - center).z, (x - center).x));
         }
         else
         {
-            normal = BottomPart.transform.InverseTransformVector(CutPosition);
+            float normalDir = Mathf.Sign(PlaneDirection.z);
+            orderedInnerVerts = CenterVertices.OrderBy(x => normalDir * Mathf.Atan2((x - center).x, (x - center).y));
         }
 
+        GapFill(TopVertices, TopTriangles, TopUVs, TopNormals, orderedInnerVerts, center, true);
+        GapFill(BottomVertices, BottomTriangles, BottomUVs, BottomNormals, orderedInnerVerts, center, false);
+
+        // Create the two new GameObjects
+        createPart(TopPart, TopVertices, TopTriangles, TopUVs, TopNormals);
+        createPart(BottomPart, BottomVertices, BottomTriangles, BottomUVs, BottomNormals);
+
+        TargetList.Remove(CurrentTarget);
+        Destroy(CurrentTarget);
+    }
+
+    private void GapFill(List<Vector3> partVerts, List<int> partTris, List<Vector2> partUvs, List<Vector3> partNormals, IOrderedEnumerable<Vector3> orderedInnerVerts, Vector3 center, bool top)
+    {
+        List<int> centerTris = new List<int>();
+
+        int sizeVertsBeforeCenter = partVerts.Count;
+        partVerts.AddRange(orderedInnerVerts);
+        partVerts.Add(center);
+
+        if (top)
+        {
+            for (int i = sizeVertsBeforeCenter; i < partVerts.Count - 1; i++)
+            {
+                centerTris.Add(i);
+                centerTris.Add(i + 1);
+                centerTris.Add(partVerts.Count - 1);
+            }
+
+            centerTris.Add(partVerts.Count - 2);
+            centerTris.Add(sizeVertsBeforeCenter);
+            centerTris.Add(partVerts.Count - 1);
+        }
+        else
+        {
+            for (int i = sizeVertsBeforeCenter; i < partVerts.Count - 1; i++)
+            {
+                centerTris.Add(i);
+                centerTris.Add(partVerts.Count - 1);
+                centerTris.Add(i + 1);
+            }
+
+            centerTris.Add(partVerts.Count - 2);
+            centerTris.Add(partVerts.Count - 1);
+            centerTris.Add(sizeVertsBeforeCenter);
+        }
+
+        partTris.AddRange(centerTris);
+
+        Vector3 normal;
+        if (top)
+            normal = TopPart.transform.InverseTransformVector(-PlanePosition);
+        else
+            normal = BottomPart.transform.InverseTransformVector(PlanePosition);
         for (int i = sizeVertsBeforeCenter; i < partVerts.Count; i++)
         {
             partUvs.Add(new Vector2(0, 0));
             partNormals.Add(normal.normalized * 3);
         }
+
     }
 
-    // Constructs a side of the cut
     private void createPart(GameObject part, List<Vector3> partVerts, List<int> partTris, List<Vector2> partUvs, List<Vector3> partNorms)
     {
         part.AddComponent<MeshFilter>();
         part.AddComponent<MeshRenderer>();
 
-        Rigidbody rb = part.AddComponent<Rigidbody>();
-        rb.mass = 10;
-
+        part.AddComponent<Rigidbody>().useGravity = false;
 
         Mesh partMesh = part.GetComponent<MeshFilter>().mesh;
 
@@ -323,19 +334,16 @@ public class Slicing : MonoBehaviour
         partMesh.uv = partUvs.ToArray();
         partMesh.normals = partNorms.ToArray();
         partMesh.RecalculateBounds();
-        part.GetComponent<Renderer>().material = Target.GetComponent<Renderer>().material;
+        part.GetComponent<Renderer>().material = CurrentTarget.GetComponent<Renderer>().material;
 
         part.AddComponent<MeshCollider>().convex = true;
-
-        part.name = Target.name + " " + part.name;
     }
 
-    // Checks for an intersection across the cutting line
     private bool[] CheckIntersection(Vector3 p1, Vector3 p2, Vector3 p3)
     {
-        float upOrDown = Mathf.Sign(Vector3.Dot(CutDirection, p1 - CutPosition));
-        float upOrDown2 = Mathf.Sign(Vector3.Dot(CutDirection, p2 - CutPosition));
-        float upOrDown3 = Mathf.Sign(Vector3.Dot(CutDirection, p3 - CutPosition));
+        float upOrDown = Mathf.Sign(Vector3.Dot(PlaneDirection, p1 - PlanePosition));
+        float upOrDown2 = Mathf.Sign(Vector3.Dot(PlaneDirection, p2 - PlanePosition));
+        float upOrDown3 = Mathf.Sign(Vector3.Dot(PlaneDirection, p3 - PlanePosition));
 
         bool intersect1 = upOrDown != upOrDown2;
         bool intersect2 = upOrDown2 != upOrDown3;
@@ -346,33 +354,31 @@ public class Slicing : MonoBehaviour
         return intersections;
     }
 
-    // If theres an intersection, add its verts to the correct side and construct new triangles
     private void ResolveIntersections(bool[] intersections, Vector3[] verts, Vector2[] uvs, Vector3[] normals)
     {
         List<Vector3> tmpUpVerts = new List<Vector3>();
         List<Vector3> tmpDownVerts = new List<Vector3>();
-        float upOrDown;
+
+        float upOrDown = Mathf.Sign(Vector3.Dot(PlaneDirection, verts[0] - PlanePosition));
+        float upOrDown2 = Mathf.Sign(Vector3.Dot(PlaneDirection, verts[1] - PlanePosition));
+        float upOrDown3 = Mathf.Sign(Vector3.Dot(PlaneDirection, verts[2] - PlanePosition));
 
         if (intersections[0])
         {
-            upOrDown = Mathf.Sign(Vector3.Dot(CutDirection, verts[0] - CutPosition));
-            AddToCorrectSide(upOrDown, 0, 1, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
+            AddToCorrectSideList(upOrDown, 0, 1, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
         }
         if (intersections[1])
         {
-            upOrDown = Mathf.Sign(Vector3.Dot(CutDirection, verts[1] - CutPosition));
-            AddToCorrectSide(upOrDown, 1, 2, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
+            AddToCorrectSideList(upOrDown2, 1, 2, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
         }
         if (intersections[2])
         {
-            upOrDown = Mathf.Sign(Vector3.Dot(CutDirection, verts[2] - CutPosition));
-            AddToCorrectSide(upOrDown, 2, 0, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
+            AddToCorrectSideList(upOrDown3, 2, 0, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
         }
-        AddNewTriangles(tmpUpVerts, tmpDownVerts);
+        HandleTriOrder(tmpUpVerts, tmpDownVerts);
     }
 
-    // Calculates the new UV and normal for given side
-    private void CalculateNewUVs(Vector3 newPoint, ref Vector2 newUV, ref Vector3 newNormal, Vector3[] points, Vector2[] uvs, Vector3[] normals)
+    private void CalculateCentroid(Vector3 newPoint, ref Vector2 newUV, ref Vector3 newNormal, Vector3[] points, Vector2[] uvs, Vector3[] normals)
     {
         Vector3 f1 = points[0] - newPoint;
         Vector3 f2 = points[1] - newPoint;
@@ -389,13 +395,12 @@ public class Slicing : MonoBehaviour
         newUV = uvs[0] * a1 + uvs[1] * a2 + uvs[2] * a3;
     }
 
-    // Adds new triangles to the cut line
-    private void AddNewTriangles(List<Vector3> tmpUpVerts, List<Vector3> tmpDownVerts)
+    private void HandleTriOrder(List<Vector3> tmpUpVerts, List<Vector3> tmpDownVerts)
     {
         int upLastInsert = TopVertices.Count;
-        int downLastInsert = DownVertices.Count;
+        int downLastInsert = BottomVertices.Count;
 
-        DownVertices.AddRange(tmpDownVerts);
+        BottomVertices.AddRange(tmpDownVerts);
         TopVertices.AddRange(tmpUpVerts);
 
         TopTriangles.Add(upLastInsert);
@@ -409,22 +414,21 @@ public class Slicing : MonoBehaviour
             TopTriangles.Add(upLastInsert + 3);
         }
 
-        DownTriangles.Add(downLastInsert);
-        DownTriangles.Add(downLastInsert + 1);
-        DownTriangles.Add(downLastInsert + 2);
+        BottomTriangles.Add(downLastInsert);
+        BottomTriangles.Add(downLastInsert + 1);
+        BottomTriangles.Add(downLastInsert + 2);
 
         if (tmpDownVerts.Count > 3)
         {
-            DownTriangles.Add(downLastInsert);
-            DownTriangles.Add(downLastInsert + 2);
-            DownTriangles.Add(downLastInsert + 3);
+            BottomTriangles.Add(downLastInsert);
+            BottomTriangles.Add(downLastInsert + 2);
+            BottomTriangles.Add(downLastInsert + 3);
 
         }
 
     }
 
-    // Adds intersected vertices to the correct side of the cut
-    private void AddToCorrectSide(float upOrDown, int pIndex1, int pIndex2, Vector3[] verts, Vector2[] uvs, Vector3[] normals, List<Vector3> top, List<Vector3> bottom)
+    private void AddToCorrectSideList(float upOrDown, int pIndex1, int pIndex2, Vector3[] verts, Vector2[] uvs, Vector3[] normals, List<Vector3> top, List<Vector3> bottom)
     {
         Vector3 p1 = verts[pIndex1];
         Vector3 p2 = verts[pIndex2];
@@ -434,11 +438,11 @@ public class Slicing : MonoBehaviour
         Vector3 n2 = normals[pIndex2];
 
         Vector3 rayDir = (p2 - p1).normalized;
-        float t = Vector3.Dot(CutPosition - p1, CutDirection) / Vector3.Dot(rayDir, CutDirection);
+        float t = Vector3.Dot(PlanePosition - p1, PlaneDirection) / Vector3.Dot(rayDir, PlaneDirection);
         Vector3 newVert = p1 + rayDir * t;
         Vector2 newUv = new Vector2(0, 0);
         Vector3 newNormal = new Vector3(0, 0, 0);
-        CalculateNewUVs(newVert, ref newUv, ref newNormal, verts, uvs, normals);
+        CalculateCentroid(newVert, ref newUv, ref newNormal, verts, uvs, normals);
 
 
         Vector3 topNewVert = TopPart.transform.InverseTransformPoint(newVert);
@@ -465,14 +469,14 @@ public class Slicing : MonoBehaviour
             TopNormals.Add(topNewNormal);
 
             bottom.Add(botNewVert);
-            DownUVs.Add(newUv);
-            DownNormals.Add(botNewNormal);
+            BottomUVs.Add(newUv);
+            BottomNormals.Add(botNewNormal);
 
             if (!bottom.Contains(p2))
             {
                 bottom.Add(p2);
-                DownUVs.Add(uv2);
-                DownNormals.Add(n2);
+                BottomUVs.Add(uv2);
+                BottomNormals.Add(n2);
             }
 
             CenterVertices.Add(topNewVert);
@@ -498,13 +502,13 @@ public class Slicing : MonoBehaviour
             if (!bottom.Contains(p1))
             {
                 bottom.Add(p1);
-                DownUVs.Add(uv1);
-                DownNormals.Add(n1);
+                BottomUVs.Add(uv1);
+                BottomNormals.Add(n1);
             }
 
             bottom.Add(botNewVert);
-            DownUVs.Add(newUv);
-            DownNormals.Add(botNewNormal);
+            BottomUVs.Add(newUv);
+            BottomNormals.Add(botNewNormal);
 
             CenterVertices.Add(botNewVert);
         }

@@ -62,11 +62,11 @@ public class VoronoiFracture : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        if (points.Count == 0 || points == null)
+        if (points == null)
         {
             return;
         }
-        else
+        else if (points.Count > 0)
         {
             foreach (Point p in points)
             {

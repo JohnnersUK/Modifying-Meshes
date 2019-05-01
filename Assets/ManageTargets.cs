@@ -13,17 +13,17 @@ public class ManageTargets : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (!player.targetList.Contains(other.gameObject))
+        if (!player.TargetList.Contains(other.gameObject))
         {
-            player.targetList.Add(other.gameObject);
+            player.TargetList.Add(other.gameObject);
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (player.targetList.Contains(other.gameObject))
+        if (player.TargetList.Contains(other.gameObject))
         {
-            player.targetList.Remove(other.gameObject);
+            player.TargetList.Remove(other.gameObject);
         }
     }
 }

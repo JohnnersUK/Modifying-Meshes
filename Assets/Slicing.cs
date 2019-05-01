@@ -178,56 +178,7 @@ public class Slicing : MonoBehaviour
             TempNormals[2] = CurrentTarget.transform.TransformVector(normals[triangles[i + 2]]);
 
             // Check for intersections
-            bool[] intersected = CheckIntersection(TempVertices[0], TempVertices[1], TempVertices[2]);
-
-            // If there is an intersection, handle the intersection point
-            if (intersected[0] || intersected[1] || intersected[2])
-            {
-                ResolveIntersections(intersected, TempVertices, TempUVs, TempNormals);
-            }
-            // If there isn't check which half it belongs to and assign it
-            else
-            {
-                // Top Half
-                if (Vector3.Dot(PlaneDirection, (TempVertices[0] - PlanePosition)) >= 0)
-                {
-                    TopVertices.Add(TopPart.transform.InverseTransformPoint(TempVertices[0]));
-                    TopVertices.Add(TopPart.transform.InverseTransformPoint(TempVertices[1]));
-                    TopVertices.Add(TopPart.transform.InverseTransformPoint(TempVertices[2]));
-
-                    TopTriangles.Add(TopVertices.Count - 3);
-                    TopTriangles.Add(TopVertices.Count - 2);
-                    TopTriangles.Add(TopVertices.Count - 1);
-
-                    TopUVs.Add(TempUVs[0]);
-                    TopUVs.Add(TempUVs[1]);
-                    TopUVs.Add(TempUVs[2]);
-
-                    TopNormals.Add(TopPart.transform.InverseTransformVector(TempNormals[0]));
-                    TopNormals.Add(TopPart.transform.InverseTransformVector(TempNormals[1]));
-                    TopNormals.Add(TopPart.transform.InverseTransformVector(TempNormals[2]));
-                }
-                // Bottom Half
-                else
-                {
-                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(TempVertices[0]));
-                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(TempVertices[1]));
-                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(TempVertices[2]));
-
-                    BottomTriangles.Add(BottomVertices.Count - 3);
-                    BottomTriangles.Add(BottomVertices.Count - 2);
-                    BottomTriangles.Add(BottomVertices.Count - 1);
-
-                    BottomUVs.Add(TempUVs[0]);
-                    BottomUVs.Add(TempUVs[1]);
-                    BottomUVs.Add(TempUVs[2]);
-
-                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(TempNormals[0]));
-                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(TempNormals[1]));
-                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(TempNormals[2]));
-                }
-            }
-
+            CheckIntersection();
         }
 
         // Calculate the center of the cut
@@ -263,11 +214,11 @@ public class Slicing : MonoBehaviour
     }
 
     // Checks for intersections
-    private bool[] CheckIntersection(Vector3 v1, Vector3 v2, Vector3 v3)
+    private void CheckIntersection()
     {
-        float v1Side = Mathf.Sign(Vector3.Dot(PlaneDirection, v1 - PlanePosition));
-        float v2Side = Mathf.Sign(Vector3.Dot(PlaneDirection, v2 - PlanePosition));
-        float v3Side = Mathf.Sign(Vector3.Dot(PlaneDirection, v3 - PlanePosition));
+        float v1Side = Mathf.Sign(Vector3.Dot(PlaneDirection, TempVertices[0] - PlanePosition));
+        float v2Side = Mathf.Sign(Vector3.Dot(PlaneDirection, TempVertices[1] - PlanePosition));
+        float v3Side = Mathf.Sign(Vector3.Dot(PlaneDirection, TempVertices[2] - PlanePosition));
 
         bool intersect1 = v1Side != v2Side;
         bool intersect2 = v2Side != v3Side;
@@ -275,32 +226,68 @@ public class Slicing : MonoBehaviour
 
         bool[] intersections = { intersect1, intersect2, intersect3 };
 
-        return intersections;
-    }
-
-    // Resolves intersections
-    private void ResolveIntersections(bool[] intersections, Vector3[] vertices, Vector2[] uvs, Vector3[] normals)
-    {
-        List<Vector3> tmpUpVerts = new List<Vector3>();
-        List<Vector3> tmpDownVerts = new List<Vector3>();
-
-        float upOrDown = Mathf.Sign(Vector3.Dot(PlaneDirection, vertices[0] - PlanePosition));
-        float upOrDown2 = Mathf.Sign(Vector3.Dot(PlaneDirection, vertices[1] - PlanePosition));
-        float upOrDown3 = Mathf.Sign(Vector3.Dot(PlaneDirection, vertices[2] - PlanePosition));
-
-        if (intersections[0])
+        // If there is an intersection, handle the intersection point
+        if (intersections[0] || intersections[1] || intersections[2])
         {
-            SplitTriangles(upOrDown, 0, 1, vertices, uvs, normals, tmpUpVerts, tmpDownVerts);
+            List<Vector3> tmpUpVerts = new List<Vector3>();
+            List<Vector3> tmpDownVerts = new List<Vector3>();
+
+            if (intersections[0])
+            {
+                SplitTriangles(v1Side, 0, 1, TempVertices, TempUVs, TempNormals, tmpUpVerts, tmpDownVerts);
+            }
+            if (intersections[1])
+            {
+                SplitTriangles(v2Side, 1, 2, TempVertices, TempUVs, TempNormals, tmpUpVerts, tmpDownVerts);
+            }
+            if (intersections[2])
+            {
+                SplitTriangles(v3Side, 2, 0, TempVertices, TempUVs, TempNormals, tmpUpVerts, tmpDownVerts);
+            }
+            CreateNewTriangles(tmpUpVerts, tmpDownVerts);
         }
-        if (intersections[1])
+        // If there isn't check which half it belongs to and assign it
+        else
         {
-            SplitTriangles(upOrDown2, 1, 2, vertices, uvs, normals, tmpUpVerts, tmpDownVerts);
+            // Top Half
+            if (Vector3.Dot(PlaneDirection, (TempVertices[0] - PlanePosition)) >= 0)
+            {
+                TopVertices.Add(TopPart.transform.InverseTransformPoint(TempVertices[0]));
+                TopVertices.Add(TopPart.transform.InverseTransformPoint(TempVertices[1]));
+                TopVertices.Add(TopPart.transform.InverseTransformPoint(TempVertices[2]));
+
+                TopTriangles.Add(TopVertices.Count - 3);
+                TopTriangles.Add(TopVertices.Count - 2);
+                TopTriangles.Add(TopVertices.Count - 1);
+
+                TopUVs.Add(TempUVs[0]);
+                TopUVs.Add(TempUVs[1]);
+                TopUVs.Add(TempUVs[2]);
+
+                TopNormals.Add(TopPart.transform.InverseTransformVector(TempNormals[0]));
+                TopNormals.Add(TopPart.transform.InverseTransformVector(TempNormals[1]));
+                TopNormals.Add(TopPart.transform.InverseTransformVector(TempNormals[2]));
+            }
+            // Bottom Half
+            else
+            {
+                BottomVertices.Add(BottomPart.transform.InverseTransformPoint(TempVertices[0]));
+                BottomVertices.Add(BottomPart.transform.InverseTransformPoint(TempVertices[1]));
+                BottomVertices.Add(BottomPart.transform.InverseTransformPoint(TempVertices[2]));
+
+                BottomTriangles.Add(BottomVertices.Count - 3);
+                BottomTriangles.Add(BottomVertices.Count - 2);
+                BottomTriangles.Add(BottomVertices.Count - 1);
+
+                BottomUVs.Add(TempUVs[0]);
+                BottomUVs.Add(TempUVs[1]);
+                BottomUVs.Add(TempUVs[2]);
+
+                BottomNormals.Add(BottomPart.transform.InverseTransformVector(TempNormals[0]));
+                BottomNormals.Add(BottomPart.transform.InverseTransformVector(TempNormals[1]));
+                BottomNormals.Add(BottomPart.transform.InverseTransformVector(TempNormals[2]));
+            }
         }
-        if (intersections[2])
-        {
-            SplitTriangles(upOrDown3, 2, 0, vertices, uvs, normals, tmpUpVerts, tmpDownVerts);
-        }
-        CreateNewTriangles(tmpUpVerts, tmpDownVerts);
     }
 
     // Splits triangles and adds a new vertex at point of intersection

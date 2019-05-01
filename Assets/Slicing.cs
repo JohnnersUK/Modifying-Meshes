@@ -224,27 +224,25 @@ public class Slicing : MonoBehaviour
         bool intersect2 = v2Side != v3Side;
         bool intersect3 = v1Side != v3Side;
 
-        bool[] intersections = { intersect1, intersect2, intersect3 };
-
         // If there is an intersection, handle the intersection point
-        if (intersections[0] || intersections[1] || intersections[2])
+        if (intersect1 || intersect2 || intersect3)
         {
-            List<Vector3> tmpUpVerts = new List<Vector3>();
-            List<Vector3> tmpDownVerts = new List<Vector3>();
+            List<Vector3> tempTopVertices = new List<Vector3>();
+            List<Vector3> tempBottomVertices = new List<Vector3>();
 
-            if (intersections[0])
+            if (intersect1)
             {
-                SplitTriangles(v1Side, 0, 1, TempVertices, TempUVs, TempNormals, tmpUpVerts, tmpDownVerts);
+                SplitTriangles(v1Side, 0, 1, TempVertices, TempUVs, TempNormals, tempTopVertices, tempBottomVertices);
             }
-            if (intersections[1])
+            if (intersect2)
             {
-                SplitTriangles(v2Side, 1, 2, TempVertices, TempUVs, TempNormals, tmpUpVerts, tmpDownVerts);
+                SplitTriangles(v2Side, 1, 2, TempVertices, TempUVs, TempNormals, tempTopVertices, tempBottomVertices);
             }
-            if (intersections[2])
+            if (intersect3)
             {
-                SplitTriangles(v3Side, 2, 0, TempVertices, TempUVs, TempNormals, tmpUpVerts, tmpDownVerts);
+                SplitTriangles(v3Side, 2, 0, TempVertices, TempUVs, TempNormals, tempTopVertices, tempBottomVertices);
             }
-            CreateNewTriangles(tmpUpVerts, tmpDownVerts);
+            CreateNewTriangles(tempTopVertices, tempBottomVertices);
         }
         // If there isn't check which half it belongs to and assign it
         else

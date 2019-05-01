@@ -141,7 +141,8 @@ public class Slicing : MonoBehaviour
     // Slices the target mesh
     private void SliceMesh(Vector3 hitPos)
     {
-        Start();
+        // Re-Initialize core components
+        InitializeComponents();
 
         // Set the position of the cut
         Vector3 origin = CuttingPlane.transform.position;
@@ -153,120 +154,110 @@ public class Slicing : MonoBehaviour
         // Initilize the target components
         Mesh targetMesh = CurrentTarget.GetComponent<MeshFilter>().mesh;
 
-        int[] tris = targetMesh.triangles;
+        int[] triangles = targetMesh.triangles;
         Vector2[] uvs = targetMesh.uv;
-        Vector3[] verts = targetMesh.vertices;
+        Vector3[] vertices = targetMesh.vertices;
         Vector3[] normals = targetMesh.normals;
 
         TopPart = new GameObject("TopPart");
         BottomPart = new GameObject("BottomPart");
 
         // Loop through each triangle, checking for intersections
-        for (int i = 0; i < tris.Length; i += 3)
+        for (int i = 0; i < triangles.Length; i += 3)
         {
-            Vector3 worldp1 = CurrentTarget.transform.TransformPoint(verts[tris[i]]);
-            Vector3 worldp2 = CurrentTarget.transform.TransformPoint(verts[tris[i + 1]]);
-            Vector3 worldp3 = CurrentTarget.transform.TransformPoint(verts[tris[i + 2]]);
+            TempVertices[0] = CurrentTarget.transform.TransformPoint(vertices[triangles[i]]);
+            TempVertices[1] = CurrentTarget.transform.TransformPoint(vertices[triangles[i + 1]]);
+            TempVertices[2] = CurrentTarget.transform.TransformPoint(vertices[triangles[i + 2]]);
 
-            Vector2 uv1 = uvs[tris[i]];
-            Vector2 uv2 = uvs[tris[i + 1]];
-            Vector2 uv3 = uvs[tris[i + 2]];
+            TempUVs[0] = uvs[triangles[i]];
+            TempUVs[1] = uvs[triangles[i + 1]];
+            TempUVs[2] = uvs[triangles[i + 2]];
 
-            Vector3 normal1 = CurrentTarget.transform.TransformVector(normals[tris[i]]);
-            Vector3 normal2 = CurrentTarget.transform.TransformVector(normals[tris[i + 1]]);
-            Vector3 normal3 = CurrentTarget.transform.TransformVector(normals[tris[i + 2]]);
+            TempNormals[0] = CurrentTarget.transform.TransformVector(normals[triangles[i]]);
+            TempNormals[1] = CurrentTarget.transform.TransformVector(normals[triangles[i + 1]]);
+            TempNormals[2] = CurrentTarget.transform.TransformVector(normals[triangles[i + 2]]);
 
             // Check for intersections
-            bool[] intersected = CheckIntersection(worldp1, worldp2, worldp3);
+            bool[] intersected = CheckIntersection(TempVertices[0], TempVertices[1], TempVertices[2]);
 
             // If there is an intersection, handle the intersection point
             if (intersected[0] || intersected[1] || intersected[2])
             {
-                TempVertices[0] = worldp1;
-                TempVertices[1] = worldp2;
-                TempVertices[2] = worldp3;
-
-                TempUVs[0] = uv1;
-                TempUVs[1] = uv2;
-                TempUVs[2] = uv3;
-
-                TempNormals[0] = normal1;
-                TempNormals[1] = normal2;
-                TempNormals[2] = normal3;
-
                 ResolveIntersections(intersected, TempVertices, TempUVs, TempNormals);
             }
             // If there isn't check which half it belongs to and assign it
             else
             {
                 // Top Half
-                if (Vector3.Dot(PlaneDirection, (worldp1 - PlanePosition)) >= 0)
+                if (Vector3.Dot(PlaneDirection, (TempVertices[0] - PlanePosition)) >= 0)
                 {
-                    TopVertices.Add(TopPart.transform.InverseTransformPoint(worldp1));
-                    TopVertices.Add(TopPart.transform.InverseTransformPoint(worldp2));
-                    TopVertices.Add(TopPart.transform.InverseTransformPoint(worldp3));
+                    TopVertices.Add(TopPart.transform.InverseTransformPoint(TempVertices[0]));
+                    TopVertices.Add(TopPart.transform.InverseTransformPoint(TempVertices[1]));
+                    TopVertices.Add(TopPart.transform.InverseTransformPoint(TempVertices[2]));
 
                     TopTriangles.Add(TopVertices.Count - 3);
                     TopTriangles.Add(TopVertices.Count - 2);
                     TopTriangles.Add(TopVertices.Count - 1);
 
-                    TopUVs.Add(uv1);
-                    TopUVs.Add(uv2);
-                    TopUVs.Add(uv3);
+                    TopUVs.Add(TempUVs[0]);
+                    TopUVs.Add(TempUVs[1]);
+                    TopUVs.Add(TempUVs[2]);
 
-                    TopNormals.Add(TopPart.transform.InverseTransformVector(normal1));
-                    TopNormals.Add(TopPart.transform.InverseTransformVector(normal2));
-                    TopNormals.Add(TopPart.transform.InverseTransformVector(normal3));
+                    TopNormals.Add(TopPart.transform.InverseTransformVector(TempNormals[0]));
+                    TopNormals.Add(TopPart.transform.InverseTransformVector(TempNormals[1]));
+                    TopNormals.Add(TopPart.transform.InverseTransformVector(TempNormals[2]));
                 }
                 // Bottom Half
                 else
                 {
-                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(worldp1));
-                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(worldp2));
-                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(worldp3));
+                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(TempVertices[0]));
+                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(TempVertices[1]));
+                    BottomVertices.Add(BottomPart.transform.InverseTransformPoint(TempVertices[2]));
 
                     BottomTriangles.Add(BottomVertices.Count - 3);
                     BottomTriangles.Add(BottomVertices.Count - 2);
                     BottomTriangles.Add(BottomVertices.Count - 1);
 
-                    BottomUVs.Add(uv1);
-                    BottomUVs.Add(uv2);
-                    BottomUVs.Add(uv3);
+                    BottomUVs.Add(TempUVs[0]);
+                    BottomUVs.Add(TempUVs[1]);
+                    BottomUVs.Add(TempUVs[2]);
 
-                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(normal1));
-                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(normal2));
-                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(normal3));
+                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(TempNormals[0]));
+                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(TempNormals[1]));
+                    BottomNormals.Add(BottomPart.transform.InverseTransformVector(TempNormals[2]));
                 }
             }
 
         }
 
-        // Add verts along the cut line
+        // Calculate the center of the cut
         Vector3 center = Vector3.zero;
         for (int i = 0; i < CenterVertices.Count; i++)
             center += CenterVertices[i];
         center /= CenterVertices.Count;
 
-        IOrderedEnumerable<Vector3> orderedInnerVerts;
-
+        // Order the vertices clockwise
+        IOrderedEnumerable<Vector3> orderedCenterVerts;
         if (PlaneDirection.y != 0)
         {
             float normalDir = Mathf.Sign(PlaneDirection.y);
-            orderedInnerVerts = CenterVertices.OrderBy(x => normalDir * Mathf.Atan2((x - center).z, (x - center).x));
+            orderedCenterVerts = CenterVertices.OrderBy(x => normalDir * Mathf.Atan2((x - center).z, (x - center).x));
         }
         else
         {
             float normalDir = Mathf.Sign(PlaneDirection.z);
-            orderedInnerVerts = CenterVertices.OrderBy(x => normalDir * Mathf.Atan2((x - center).x, (x - center).y));
+            orderedCenterVerts = CenterVertices.OrderBy(x => normalDir * Mathf.Atan2((x - center).x, (x - center).y));
         }
 
-        CapGap(TopVertices, TopTriangles, TopUVs, TopNormals, orderedInnerVerts, center, true);
-        CapGap(BottomVertices, BottomTriangles, BottomUVs, BottomNormals, orderedInnerVerts, center, false);
+        // Fill the gaps left after slicing
+        CapGap(TopVertices, TopTriangles, TopUVs, TopNormals, orderedCenterVerts, center, true);
+        CapGap(BottomVertices, BottomTriangles, BottomUVs, BottomNormals, orderedCenterVerts, center, false);
 
         // Create the two new GameObjects
         CreatePart(TopPart, TopVertices, TopTriangles, TopUVs, TopNormals);
         CreatePart(BottomPart, BottomVertices, BottomTriangles, BottomUVs, BottomNormals);
 
+        // Remove the original game object
         TargetList.Remove(CurrentTarget);
         Destroy(CurrentTarget);
     }

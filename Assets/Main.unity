@@ -633,6 +633,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Window (2)
       objectReference: {fileID: 0}
+    - target: {fileID: 7880068852994300809, guid: 26acde4522337d94f9766999d2cebcad,
+        type: 3}
+      propertyPath: m_TagString
+      value: Breakable
+      objectReference: {fileID: 0}
     - target: {fileID: 6428869024914978509, guid: 26acde4522337d94f9766999d2cebcad,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -700,7 +705,6 @@ GameObject:
   m_Component:
   - component: {fileID: 441191221}
   - component: {fileID: 441191222}
-  - component: {fileID: 441191223}
   - component: {fileID: 441191225}
   - component: {fileID: 441191224}
   - component: {fileID: 441191226}
@@ -742,19 +746,6 @@ MonoBehaviour:
   cross: {fileID: 220877670}
   camSpeed: 5
   moveSpeed: 0.2
---- !u!114 &441191223
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 441191220}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: be82cfa288b1f204aab0202c0060fe7f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SegmentMaterial: {fileID: 2100000, guid: 17deeb4465caa7b46801b5f9c37243a3, type: 2}
 --- !u!65 &441191224
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -780,9 +771,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 61659e43f83c1224db503abddbe0aa6d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxCuts: 10
-  targetList: []
-  cuttingPlane: {fileID: 1072561066}
+  MaxCuts: 1
+  TargetList: []
+  CuttingPlane: {fileID: 1072561066}
 --- !u!136 &441191226
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -1184,6 +1175,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Window (3)
       objectReference: {fileID: 0}
+    - target: {fileID: 7880068852994300809, guid: 26acde4522337d94f9766999d2cebcad,
+        type: 3}
+      propertyPath: m_TagString
+      value: Breakable
+      objectReference: {fileID: 0}
     - target: {fileID: 6428869024914978509, guid: 26acde4522337d94f9766999d2cebcad,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -1439,7 +1435,7 @@ GameObject:
   - component: {fileID: 1072561069}
   - component: {fileID: 1072561068}
   m_Layer: 0
-  m_Name: Quad
+  m_Name: CuttingPlane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1715,6 +1711,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: Window (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 7880068852994300809, guid: 26acde4522337d94f9766999d2cebcad,
+        type: 3}
+      propertyPath: m_TagString
+      value: Breakable
       objectReference: {fileID: 0}
     - target: {fileID: 6428869024914978509, guid: 26acde4522337d94f9766999d2cebcad,
         type: 3}
@@ -2395,6 +2396,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: Window
+      objectReference: {fileID: 0}
+    - target: {fileID: 7880068852994300809, guid: 26acde4522337d94f9766999d2cebcad,
+        type: 3}
+      propertyPath: m_TagString
+      value: Breakable
       objectReference: {fileID: 0}
     - target: {fileID: 6428869024914978509, guid: 26acde4522337d94f9766999d2cebcad,
         type: 3}

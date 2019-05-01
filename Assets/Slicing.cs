@@ -117,6 +117,7 @@ public class Slicing : MonoBehaviour
         }
     }
 
+    // Re-initializes the core components
     private void InitializeComponents()
     {
         // Initilize components
@@ -137,6 +138,7 @@ public class Slicing : MonoBehaviour
         CenterVertices = new List<Vector3>();
     }
 
+    // Slices the target mesh
     private void SliceMesh(Vector3 hitPos)
     {
         Start();
@@ -269,60 +271,63 @@ public class Slicing : MonoBehaviour
         Destroy(CurrentTarget);
     }
 
+    // Checks for intersections
     private bool[] CheckIntersection(Vector3 v1, Vector3 v2, Vector3 v3)
     {
-        float upOrDown = Mathf.Sign(Vector3.Dot(PlaneDirection, v1 - PlanePosition));
-        float upOrDown2 = Mathf.Sign(Vector3.Dot(PlaneDirection, v2 - PlanePosition));
-        float upOrDown3 = Mathf.Sign(Vector3.Dot(PlaneDirection, v3 - PlanePosition));
+        float v1Side = Mathf.Sign(Vector3.Dot(PlaneDirection, v1 - PlanePosition));
+        float v2Side = Mathf.Sign(Vector3.Dot(PlaneDirection, v2 - PlanePosition));
+        float v3Side = Mathf.Sign(Vector3.Dot(PlaneDirection, v3 - PlanePosition));
 
-        bool intersect1 = upOrDown != upOrDown2;
-        bool intersect2 = upOrDown2 != upOrDown3;
-        bool intersect3 = upOrDown != upOrDown3;
+        bool intersect1 = v1Side != v2Side;
+        bool intersect2 = v2Side != v3Side;
+        bool intersect3 = v1Side != v3Side;
 
         bool[] intersections = { intersect1, intersect2, intersect3 };
 
         return intersections;
     }
 
-    private void ResolveIntersections(bool[] intersections, Vector3[] verts, Vector2[] uvs, Vector3[] normals)
+    // Resolves intersections
+    private void ResolveIntersections(bool[] intersections, Vector3[] vertices, Vector2[] uvs, Vector3[] normals)
     {
         List<Vector3> tmpUpVerts = new List<Vector3>();
         List<Vector3> tmpDownVerts = new List<Vector3>();
 
-        float upOrDown = Mathf.Sign(Vector3.Dot(PlaneDirection, verts[0] - PlanePosition));
-        float upOrDown2 = Mathf.Sign(Vector3.Dot(PlaneDirection, verts[1] - PlanePosition));
-        float upOrDown3 = Mathf.Sign(Vector3.Dot(PlaneDirection, verts[2] - PlanePosition));
+        float upOrDown = Mathf.Sign(Vector3.Dot(PlaneDirection, vertices[0] - PlanePosition));
+        float upOrDown2 = Mathf.Sign(Vector3.Dot(PlaneDirection, vertices[1] - PlanePosition));
+        float upOrDown3 = Mathf.Sign(Vector3.Dot(PlaneDirection, vertices[2] - PlanePosition));
 
         if (intersections[0])
         {
-            SplitTriangles(upOrDown, 0, 1, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
+            SplitTriangles(upOrDown, 0, 1, vertices, uvs, normals, tmpUpVerts, tmpDownVerts);
         }
         if (intersections[1])
         {
-            SplitTriangles(upOrDown2, 1, 2, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
+            SplitTriangles(upOrDown2, 1, 2, vertices, uvs, normals, tmpUpVerts, tmpDownVerts);
         }
         if (intersections[2])
         {
-            SplitTriangles(upOrDown3, 2, 0, verts, uvs, normals, tmpUpVerts, tmpDownVerts);
+            SplitTriangles(upOrDown3, 2, 0, vertices, uvs, normals, tmpUpVerts, tmpDownVerts);
         }
         CreateNewTriangles(tmpUpVerts, tmpDownVerts);
     }
 
-    private void SplitTriangles(float upOrDown, int pIndex1, int pIndex2, Vector3[] verts, Vector2[] uvs, Vector3[] normals, List<Vector3> top, List<Vector3> bottom)
+    // Splits triangles and adds a new vertex at point of intersection
+    private void SplitTriangles(float vertexSide, int v1Index, int v2Index, Vector3[] vertices, Vector2[] uvs, Vector3[] normals, List<Vector3> newTopVertices, List<Vector3> newBottomVertices)
     {
-        Vector3 p1 = verts[pIndex1];
-        Vector3 p2 = verts[pIndex2];
-        Vector2 uv1 = uvs[pIndex1];
-        Vector2 uv2 = uvs[pIndex2];
-        Vector3 n1 = normals[pIndex1];
-        Vector3 n2 = normals[pIndex2];
+        Vector3 p1 = vertices[v1Index];
+        Vector3 p2 = vertices[v2Index];
+        Vector2 uv1 = uvs[v1Index];
+        Vector2 uv2 = uvs[v2Index];
+        Vector3 n1 = normals[v1Index];
+        Vector3 n2 = normals[v2Index];
 
         Vector3 rayDir = (p2 - p1).normalized;
         float t = Vector3.Dot(PlanePosition - p1, PlaneDirection) / Vector3.Dot(rayDir, PlaneDirection);
         Vector3 newVert = p1 + rayDir * t;
         Vector2 newUv = new Vector2(0, 0);
         Vector3 newNormal = new Vector3(0, 0, 0);
-        GetNewUVs(newVert, ref newUv, ref newNormal, verts, uvs, normals);
+        GetNewUVs(newVert, ref newUv, ref newNormal, vertices, uvs, normals);
 
 
         Vector3 topNewVert = TopPart.transform.InverseTransformPoint(newVert);
@@ -330,31 +335,31 @@ public class Slicing : MonoBehaviour
         Vector3 topNewNormal = TopPart.transform.InverseTransformVector(newNormal).normalized;
         Vector3 botNewNormal = BottomPart.transform.InverseTransformVector(newNormal).normalized;
 
-        if (upOrDown > 0)
+        if (vertexSide > 0)
         {
             p1 = TopPart.transform.InverseTransformPoint(p1);
             p2 = BottomPart.transform.InverseTransformPoint(p2);
             n1 = TopPart.transform.InverseTransformVector(n1).normalized;
             n2 = BottomPart.transform.InverseTransformVector(n2).normalized;
 
-            if (!top.Contains(p1))
+            if (!newTopVertices.Contains(p1))
             {
-                top.Add(p1);
+                newTopVertices.Add(p1);
                 TopUVs.Add(uv1);
                 TopNormals.Add(n1);
             }
 
-            top.Add(topNewVert);
+            newTopVertices.Add(topNewVert);
             TopUVs.Add(newUv);
             TopNormals.Add(topNewNormal);
 
-            bottom.Add(botNewVert);
+            newBottomVertices.Add(botNewVert);
             BottomUVs.Add(newUv);
             BottomNormals.Add(botNewNormal);
 
-            if (!bottom.Contains(p2))
+            if (!newBottomVertices.Contains(p2))
             {
-                bottom.Add(p2);
+                newBottomVertices.Add(p2);
                 BottomUVs.Add(uv2);
                 BottomNormals.Add(n2);
             }
@@ -369,24 +374,24 @@ public class Slicing : MonoBehaviour
             n2 = TopPart.transform.InverseTransformVector(n2).normalized;
             n1 = BottomPart.transform.InverseTransformVector(n1).normalized;
 
-            top.Add(topNewVert);
+            newTopVertices.Add(topNewVert);
             TopUVs.Add(newUv);
             TopNormals.Add(topNewNormal);
 
-            if (!top.Contains(p2))
+            if (!newTopVertices.Contains(p2))
             {
-                top.Add(p2);
+                newTopVertices.Add(p2);
                 TopUVs.Add(uv2);
                 TopNormals.Add(n2);
             }
-            if (!bottom.Contains(p1))
+            if (!newBottomVertices.Contains(p1))
             {
-                bottom.Add(p1);
+                newBottomVertices.Add(p1);
                 BottomUVs.Add(uv1);
                 BottomNormals.Add(n1);
             }
 
-            bottom.Add(botNewVert);
+            newBottomVertices.Add(botNewVert);
             BottomUVs.Add(newUv);
             BottomNormals.Add(botNewNormal);
 
@@ -395,14 +400,15 @@ public class Slicing : MonoBehaviour
 
     }
 
-    private void GetNewUVs(Vector3 newPoint, ref Vector2 newUV, ref Vector3 newNormal, Vector3[] points, Vector2[] uvs, Vector3[] normals)
+    // Calculates new UVs
+    private void GetNewUVs(Vector3 newVertex, ref Vector2 newUV, ref Vector3 newNormal, Vector3[] vertices, Vector2[] uvs, Vector3[] normals)
     {
-        Vector3 f1 = points[0] - newPoint;
-        Vector3 f2 = points[1] - newPoint;
-        Vector3 f3 = points[2] - newPoint;
+        Vector3 f1 = vertices[0] - newVertex;
+        Vector3 f2 = vertices[1] - newVertex;
+        Vector3 f3 = vertices[2] - newVertex;
 
         // calculate the triangle areas
-        float areaMainTri = Vector3.Cross(points[0] - points[1], points[0] - points[2]).magnitude; // main triangle area a
+        float areaMainTri = Vector3.Cross(vertices[0] - vertices[1], vertices[0] - vertices[2]).magnitude; // main triangle area a
         float a1 = Vector3.Cross(f2, f3).magnitude / areaMainTri; // p1's triangle area / a
         float a2 = Vector3.Cross(f3, f1).magnitude / areaMainTri; // p2's triangle area / a 
         float a3 = Vector3.Cross(f1, f2).magnitude / areaMainTri; // p3's triangle area / a
@@ -412,19 +418,20 @@ public class Slicing : MonoBehaviour
         newUV = uvs[0] * a1 + uvs[1] * a2 + uvs[2] * a3;
     }
 
-    private void CreateNewTriangles(List<Vector3> tmpUpVerts, List<Vector3> tmpDownVerts)
+    // Creates new triangles from split parts
+    private void CreateNewTriangles(List<Vector3> tempTopVertices, List<Vector3> tempBottomVertices)
     {
         int upLastInsert = TopVertices.Count;
         int downLastInsert = BottomVertices.Count;
 
-        BottomVertices.AddRange(tmpDownVerts);
-        TopVertices.AddRange(tmpUpVerts);
+        BottomVertices.AddRange(tempBottomVertices);
+        TopVertices.AddRange(tempTopVertices);
 
         TopTriangles.Add(upLastInsert);
         TopTriangles.Add(upLastInsert + 1);
         TopTriangles.Add(upLastInsert + 2);
 
-        if (tmpUpVerts.Count > 3)
+        if (tempTopVertices.Count > 3)
         {
             TopTriangles.Add(upLastInsert);
             TopTriangles.Add(upLastInsert + 2);
@@ -435,7 +442,7 @@ public class Slicing : MonoBehaviour
         BottomTriangles.Add(downLastInsert + 1);
         BottomTriangles.Add(downLastInsert + 2);
 
-        if (tmpDownVerts.Count > 3)
+        if (tempBottomVertices.Count > 3)
         {
             BottomTriangles.Add(downLastInsert);
             BottomTriangles.Add(downLastInsert + 2);
@@ -445,57 +452,59 @@ public class Slicing : MonoBehaviour
 
     }
 
-    private void CapGap(List<Vector3> partVerts, List<int> partTris, List<Vector2> partUvs, List<Vector3> partNormals, IOrderedEnumerable<Vector3> orderedInnerVerts, Vector3 center, bool top)
+    // Fills gap left by slice
+    private void CapGap(List<Vector3> partVertices, List<int> partTriangles, List<Vector2> partUVs, List<Vector3> partNormals, IOrderedEnumerable<Vector3> orderedSliceVerts, Vector3 center, bool top)
     {
         List<int> centerTris = new List<int>();
 
-        int sizeVertsBeforeCenter = partVerts.Count;
-        partVerts.AddRange(orderedInnerVerts);
-        partVerts.Add(center);
+        int sizeVertsBeforeCenter = partVertices.Count;
+        partVertices.AddRange(orderedSliceVerts);
+        partVertices.Add(center);
 
         if (top)
         {
-            for (int i = sizeVertsBeforeCenter; i < partVerts.Count - 1; i++)
+            for (int i = sizeVertsBeforeCenter; i < partVertices.Count - 1; i++)
             {
                 centerTris.Add(i);
                 centerTris.Add(i + 1);
-                centerTris.Add(partVerts.Count - 1);
+                centerTris.Add(partVertices.Count - 1);
             }
 
-            centerTris.Add(partVerts.Count - 2);
+            centerTris.Add(partVertices.Count - 2);
             centerTris.Add(sizeVertsBeforeCenter);
-            centerTris.Add(partVerts.Count - 1);
+            centerTris.Add(partVertices.Count - 1);
         }
         else
         {
-            for (int i = sizeVertsBeforeCenter; i < partVerts.Count - 1; i++)
+            for (int i = sizeVertsBeforeCenter; i < partVertices.Count - 1; i++)
             {
                 centerTris.Add(i);
-                centerTris.Add(partVerts.Count - 1);
+                centerTris.Add(partVertices.Count - 1);
                 centerTris.Add(i + 1);
             }
 
-            centerTris.Add(partVerts.Count - 2);
-            centerTris.Add(partVerts.Count - 1);
+            centerTris.Add(partVertices.Count - 2);
+            centerTris.Add(partVertices.Count - 1);
             centerTris.Add(sizeVertsBeforeCenter);
         }
 
-        partTris.AddRange(centerTris);
+        partTriangles.AddRange(centerTris);
 
         Vector3 normal;
         if (top)
             normal = TopPart.transform.InverseTransformVector(-PlanePosition);
         else
             normal = BottomPart.transform.InverseTransformVector(PlanePosition);
-        for (int i = sizeVertsBeforeCenter; i < partVerts.Count; i++)
+        for (int i = sizeVertsBeforeCenter; i < partVertices.Count; i++)
         {
-            partUvs.Add(new Vector2(0, 0));
+            partUVs.Add(new Vector2(0, 0));
             partNormals.Add(normal.normalized * 3);
         }
 
     }
 
-    private void CreatePart(GameObject part, List<Vector3> partVerts, List<int> partTris, List<Vector2> partUvs, List<Vector3> partNorms)
+    // Creates part from part lists
+    private void CreatePart(GameObject part, List<Vector3> partVertices, List<int> partTriangles, List<Vector2> partUVs, List<Vector3> partNormals)
     {
         part.AddComponent<MeshFilter>();
         part.AddComponent<MeshRenderer>();
@@ -505,10 +514,10 @@ public class Slicing : MonoBehaviour
         Mesh partMesh = part.GetComponent<MeshFilter>().mesh;
 
         partMesh.Clear();
-        partMesh.vertices = partVerts.ToArray();
-        partMesh.triangles = partTris.ToArray();
-        partMesh.uv = partUvs.ToArray();
-        partMesh.normals = partNorms.ToArray();
+        partMesh.vertices = partVertices.ToArray();
+        partMesh.triangles = partTriangles.ToArray();
+        partMesh.uv = partUVs.ToArray();
+        partMesh.normals = partNormals.ToArray();
         partMesh.RecalculateBounds();
         part.GetComponent<Renderer>().material = CurrentTarget.GetComponent<Renderer>().material;
 
